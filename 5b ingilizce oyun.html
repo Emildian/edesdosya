@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>5B OYUN</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        body { margin: 0; background: #1a1a1a; color: #fff; font-family: 'VT323', monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        #ui { width: 900px; background: #333; padding: 10px; border: 4px solid #000; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 1.5rem; }
+        #question-area { width: 900px; text-align: center; background: rgba(0,0,0,0.8); padding: 10px; color: #55FF55; font-size: 2rem; border: 4px solid #000; border-bottom: none; }
+        #game-window { width: 900px; height: 500px; position: relative; overflow: hidden; background: #4a80ff; border: 8px solid #222; }
+        
+        /* Kazma Modu (1-15) */
+        .block { position: absolute; width: 140px; height: 140px; background: #795548; border: 6px solid #4e342e; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 1.8rem; box-shadow: inset 0 10px 0 #8bc34a; cursor: pointer; }
+        .mining-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #pickaxe { position: absolute; font-size: 50px; z-index: 1000; pointer-events: none; display: none; }
+        
+        /* Uçak Modu (16-30) */
+        #player { position: absolute; bottom: 20px; left: 420px; font-size: 50px; display: none; z-index: 100; transition: left 0.1s; }
+        .cloud { position: absolute; width: 130px; height: 60px; background: white; color: black; border-radius: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.4rem; top: -100px; }
+        
+        /* Kontroller */
+        .mobile-controls { position: absolute; bottom: 10px; width: 100%; display: none; justify-content: space-between; padding: 0 50px; box-sizing: border-box; z-index: 200; }
+        .ctrl-btn { width: 80px; height: 80px; background: rgba(255,255,255,0.3); border: 3px solid #fff; border-radius: 50%; font-size: 2rem; color: #fff; cursor: pointer; }
+
+        #msg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+        .correct-highlight { border: 8px solid #55FF55 !important; box-shadow: 0 0 20px #55FF55; }
+        .particle { position: absolute; width: 6px; height: 6px; background: #5d4037; pointer-events: none; }
+        .swinging { animation: swing 0.2s infinite; }
+        @keyframes swing { 0% { transform: rotate(0deg); } 50% { transform: rotate(-45deg); } 100% { transform: rotate(0deg); } }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <span>Level: <span id="lvl-num">1</span>/30</span>
+    <span>Mod: <span id="game-mode">5B SONGÜL HOCA</span></span>
+    <span>XP: <span id="score-num">0</span></span>
+</div>
+<div id="question-area">Soru yükleniyor...</div>
+
+<div id="game-window">
+    <div id="pickaxe">⛏️</div>
+    <div id="player">✈️</div>
+    
+    <div id="msg-overlay">
+        <h1 id="msg-text"></h1>
+        <button id="next-btn" style="padding:15px 30px; font-family:'VT323'; font-size:2rem; cursor:pointer;" onclick="nextQuestion()">SONRAKİ SORU >></button>
+    </div>
+
+    <div class="mobile-controls" id="m-ctrl">
+        <button class="ctrl-btn" onmousedown="moveLeft()" onmouseup="stopMove()">◀</button>
+        <button class="ctrl-btn" onmousedown="moveRight()" onmouseup="stopMove()">▶</button>
+    </div>
+</div>
+
+<script>
+    const levels = [
+        //1-15 TE MC TEMASI
+        { q: "I have ___ beautiful cat.", a: "a", o: ["a", "an", "some", "any"] },
+        { q: "Would you like ___ apple?", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "There are ___ students in the garden.", a: "some", o: ["a", "an", "some", "any"] },
+        { q: "Is there ___ milk in the glass?", a: "any", o: ["some", "any", "many", "an"] },
+        { q: "How ___ iron ingots for a sword?", a: "many", o: ["much", "many", "any", "some"] }, // 5: MC
+        { q: "How ___ sand do we need for glass?", a: "much", o: ["many", "much", "any", "some"] }, // 6: MC
+        { q: "I found ___ orange on the table.", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "Give me ___ advice, please.", a: "some", o: ["a", "an", "some", "any"] },
+        { q: "It was ___ amazing day!", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "There isn't ___ coffee in my cup.", a: "any", o: ["some", "any", "many", "a"] },
+        { q: "We saw ___ elephant at the zoo.", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "I have ___ new umbrella.", a: "a", o: ["a", "an", "some", "any"] },
+        { q: "Watch out! ___ Creeper is coming!", a: "a", o: ["a", "an", "some", "any"] }, // 13: MC
+        { q: "How ___ time do we have left?", a: "much", o: ["many", "much", "any", "some"] },
+        { q: "Are there ___ chairs in the room?", a: "any", o: ["some", "any", "much", "a"] },
+        // 16-30 UÇAK TEMASI)
+        { q: "He is ___ honest man.", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "Can I have ___ water?", a: "some", o: ["any", "some", "many", "an"] },
+        { q: "There is ___ octopus in the sea.", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "How ___ people are here?", a: "many", o: ["much", "many", "some", "any"] },
+        { q: "I need ___ information.", a: "some", o: ["a", "an", "some", "any"] },
+        { q: "There are ___ birds in the sky.", a: "some", o: ["a", "an", "some", "any"] },
+        { q: "Is there ___ salt in the soup?", a: "any", o: ["some", "any", "much", "a"] },
+        { q: "Wait ___ hour, please.", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "I have ___ red car.", a: "a", o: ["a", "an", "some", "any"] },
+        { q: "How ___ money do you have?", a: "much", o: ["many", "much", "any", "some"] },
+        { q: "She bought ___ expensive gift.", a: "an", o: ["a", "an", "some", "any"] },
+        { q: "There aren't ___ eggs in the box.", a: "any", o: ["some", "any", "much", "a"] },
+        { q: "Look! There is ___ plane!", a: "a", o: ["a", "an", "some", "any"] },
+        { q: "I want ___ ice cream.", a: "some", o: ["a", "an", "some", "any"] },
+        { q: "This is ___ end of the game!", a: "the", o: ["a", "an", "the", "any"] }
+    ];
+
+    let currentLvl = 0;
+    let score = 0;
+    let mode = "KAZMA";
+    let mineTimer, progress = 0;
+    let playerX = 425;
+    let cloudLoop;
+
+    function initLevel() {
+        document.getElementById('lvl-num').innerText = currentLvl + 1;
+        document.getElementById('question-area').innerText = levels[currentLvl].q;
+        document.getElementById('score-num').innerText = score;
+        document.getElementById('msg-overlay').style.display = "none";
+        
+        // Temizlik
+        document.querySelectorAll('.block, .cloud').forEach(e => e.remove());
+        clearInterval(cloudLoop);
+
+        if(currentLvl < 15) {
+            mode = "KAZMA";
+            document.getElementById('game-mode').innerText = "KAZMA";
+            document.getElementById('player').style.display = "none";
+            document.getElementById('m-ctrl').style.display = "none";
+            setupMining();
+        } else {
+            mode = "UÇAK";
+            document.getElementById('game-mode').innerText = "UÇAK";
+            document.getElementById('player').style.display = "block";
+            document.getElementById('m-ctrl').style.display = "flex";
+            setupSky();
+        }
+    }
+
+    // MC MODU
+    function setupMining() {
+        const pos = [{t:'80px',l:'200px'},{t:'80px',l:'550px'},{t:'280px',l:'200px'},{t:'280px',l:'550px'}];
+        levels[currentLvl].o.forEach((text, i) => {
+            const b = document.createElement('div');
+            b.className = 'block';
+            b.innerHTML = `<div>${text}</div><div class="mining-overlay"></div>`;
+            b.style.top = pos[i].t; b.style.left = pos[i].l;
+            b.dataset.val = text;
+            b.onmousedown = (e) => startMining(e, b);
+            b.onmouseup = stopMining;
+            win.appendChild(b);
+        });
+    }
+
+    function startMining(e, b) {
+        progress = 0;
+        document.getElementById('pickaxe').style.display = "block";
+        document.getElementById('pickaxe').classList.add('swinging');
+        mineTimer = setInterval(() => {
+            progress += 4;
+            b.querySelector('.mining-overlay').style.background = `rgba(0,0,0,${progress/100})`;
+            createParticles(b);
+            if(progress >= 100) { clearInterval(mineTimer); checkResult(b.dataset.val === levels[currentLvl].a, b); }
+        }, 100);
+    }
+
+    function stopMining() { clearInterval(mineTimer); document.getElementById('pickaxe').style.display="none"; }
+
+    // UÇAK MODU
+    function setupSky() {
+        const lanes = [100, 300, 500, 700];
+        const shuffled = [...levels[currentLvl].o].sort(() => Math.random() - 0.5);
+        const clouds = [];
+        shuffled.forEach((text, i) => {
+            const c = document.createElement('div');
+            c.className = 'cloud';
+            c.innerText = text;
+            c.style.left = lanes[i] + 'px';
+            c.dataset.val = text;
+            win.appendChild(c);
+            clouds.push(c);
+        });
+
+        let cloudY = -100;
+        cloudLoop = setInterval(() => {
+            cloudY += 1.5; // Yavaş akış
+            clouds.forEach(c => {
+                c.style.top = cloudY + 'px';
+                // Çarpışma
+                if(cloudY > 380 && cloudY < 450) {
+                    let cL = parseInt(c.style.left);
+                    if(playerX + 50 > cL && playerX < cL + 130) {
+                        clearInterval(cloudLoop);
+                        checkResult(c.dataset.val === levels[currentLvl].a, c);
+                    }
+                }
+            });
+            if(cloudY > 500) { clearInterval(cloudLoop); checkResult(false, null); }
+        }, 20);
+    }
+
+    function checkResult(isCorrect, element) {
+        const msg = document.getElementById('msg-text');
+        if(isCorrect) { score += 50; msg.innerText = "HARİKA! +50 XP"; msg.style.color = "#55FF55"; }
+        else { msg.innerText = "YANLIŞ!"; msg.style.color = "#FF5555"; }
+        
+        document.querySelectorAll('.block, .cloud').forEach(e => {
+            if(e.dataset.val === levels[currentLvl].a) e.classList.add('correct-highlight');
+        });
+        document.getElementById('msg-overlay').style.display = "flex";
+    }
+
+    function nextQuestion() { currentLvl++; initLevel(); }
+
+    // Kontroller
+    const win = document.getElementById('game-window');
+    win.onmousemove = (e) => {
+        const r = win.getBoundingClientRect();
+        document.getElementById('pickaxe').style.left = (e.clientX - r.left - 20) + 'px';
+        document.getElementById('pickaxe').style.top = (e.clientY - r.top - 30) + 'px';
+    };
+
+    let moveInterval;
+    function moveLeft() { moveInterval = setInterval(() => { if(playerX > 10) playerX -= 10; updatePlayer(); }, 30); }
+    function moveRight() { moveInterval = setInterval(() => { if(playerX < 840) playerX += 10; updatePlayer(); }, 30); }
+    function stopMove() { clearInterval(moveInterval); }
+    function updatePlayer() { document.getElementById('player').style.left = playerX + 'px'; }
+
+    // Klavye desteği
+    window.addEventListener('keydown', e => {
+        if(mode === "UÇAK") {
+            if(e.key === "ArrowLeft" && playerX > 10) playerX -= 20;
+            if(e.key === "ArrowRight" && playerX < 840) playerX += 20;
+            updatePlayer();
+        }
+    });
+
+    function createParticles(b) {
+        const p = document.createElement('div'); p.className = 'particle';
+        const r = b.getBoundingClientRect(); const wr = win.getBoundingClientRect();
+        p.style.left = (r.left - wr.left + 70 + Math.random()*40-20) + 'px';
+        p.style.top = (r.top - wr.top + 70 + Math.random()*40-20) + 'px';
+        win.appendChild(p); setTimeout(() => p.remove(), 400);
+    }
+
+    initLevel();
+</script>
+</body>
+</html>
